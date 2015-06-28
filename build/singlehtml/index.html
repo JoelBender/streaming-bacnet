@@ -1,0 +1,1187 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>Streaming BACnet</title>
+    
+    <link rel="stylesheet" href="_static/nature.css" type="text/css" />
+    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    './',
+        VERSION:     '1.0',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="_static/jquery.js"></script>
+    <script type="text/javascript" src="_static/underscore.js"></script>
+    <script type="text/javascript" src="_static/doctools.js"></script>
+    <link rel="top" title="None" href="index.html#document-index" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li><a href="index.html#document-index">Streaming BACnet</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <div class="section" id="streaming-bacnet">
+<h1>Streaming BACnet<a class="headerlink" href="#streaming-bacnet" title="Permalink to this headline">¶</a></h1>
+<div class="section" id="rationale">
+<h2>Rationale<a class="headerlink" href="#rationale" title="Permalink to this headline">¶</a></h2>
+<p>This addenda is a specification for sending and receiving PDU’s between
+networking entities when they use a <a class="reference internal" href="index.html#term-connection-oriented-protocol"><em class="xref std std-term">connection-oriented protocol</em></a>.</p>
+<p>This specification is not restricted to a specific protocol such as TCP, nor
+does it preclude the use of protocols that also provide security services
+such as SSL.</p>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">I have been using <strong>BACnet/TCP</strong> to refer to Streaming BACnet over TCP
+connections to differentiate it from BACnet/IP which is UDP.  I expect
+servers to be listening on port 47808.</p>
+</div>
+<p>This design follows the model of the BACnet Virtual Link Layer established in
+Annex J.  Connection oriented protocols provide a continuous stream of content
+between endpoints and there is no proscribed boundary between packets, so a
+BACnet Streaming Link Layer (BSLL) header is used to divide the stream into
+PDU’s (this is considered a presentation layer function in the OSI model).</p>
+<div class="section" id="bsll-protocol-data-units">
+<h3>BSLL Protocol Data Units<a class="headerlink" href="#bsll-protocol-data-units" title="Permalink to this headline">¶</a></h3>
+<p>The BSLL header has a one octet type field, a one octet function field,
+and two octet length field.  The maximum data length to be 65531 octets.
+To distinguish these BSLL packets from those in Annex J, the type field
+contains X’82’.</p>
+<table border="1" class="docutils">
+<caption><strong>Table X.1</strong> BSLL Message Fields</caption>
+<colgroup>
+<col width="21%" />
+<col width="17%" />
+<col width="63%" />
+</colgroup>
+<thead valign="bottom">
+<tr class="row-odd"><th class="head">Field</th>
+<th class="head">Size</th>
+<th class="head">Description</th>
+</tr>
+</thead>
+<tbody valign="top">
+<tr class="row-even"><td>BSLV Type</td>
+<td>1-octet</td>
+<td>Streaming BACnet (value = X&#8216;82&#8217;)</td>
+</tr>
+<tr class="row-odd"><td>BSLV Function</td>
+<td>1-octet</td>
+<td>Function</td>
+</tr>
+<tr class="row-even"><td>BSLV Length</td>
+<td>2-octets</td>
+<td>Length L, in octets, of the BSLL message and its contents</td>
+</tr>
+<tr class="row-odd"><td>Payload</td>
+<td>variable</td>
+<td>Dependent on the function</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<div class="section" id="network-entities">
+<h2>Network Entities<a class="headerlink" href="#network-entities" title="Permalink to this headline">¶</a></h2>
+<p>There are a three network entities in BACnet; devices, routers, and BBMDs.
+Similar to the way a physical BACnet devices can be any combination of the
+three types, for example a device can also be a router, the new network
+entities in this specification can be combined together.</p>
+<p>Packets from any of the services may be used in a connection, for
+example, routers typically have a device object and are therefore considered
+to be a device as well as a router.  If a device is connected to a router that
+has a device object, it is not necessary to establish a separate connection
+for device-to-device traffic to separate it from device-to-router traffic.  It
+is, however, required that the client request the connection be used for the
+service.</p>
+</div>
+<div class="section" id="services">
+<h2>Services<a class="headerlink" href="#services" title="Permalink to this headline">¶</a></h2>
+<div class="toctree-wrapper compound">
+<span id="document-session"></span><div class="section" id="sessions">
+<h3>Sessions<a class="headerlink" href="#sessions" title="Permalink to this headline">¶</a></h3>
+<p>A <a class="reference internal" href="index.html#term-session"><em class="xref std std-term">session</em></a> is an agreement between the <a class="reference internal" href="index.html#term-client"><em class="xref std std-term">client</em></a> that initiated the
+connection and the <a class="reference internal" href="index.html#term-server"><em class="xref std std-term">server</em></a> that accepted it to use the connection in
+a specific way.  It assumes that the details of establishing and maintaining
+the connection have already been provided by a
+<a class="reference internal" href="index.html#term-connection-oriented-protocol"><em class="xref std std-term">connection-oriented protocol</em></a>.</p>
+<p><em>Authentication</em> is the process of determining the identity of a connected
+client by a server.  The authentication procedure described in this section is
+optional, the server may already have determined the identity of the client
+as a consequence of establishing a secure connection, or the server may
+provide the service to all clients.  Determining when authentication is
+necessary is a local matter.</p>
+<p><em>Authorization</em> is the process of validating the right to a service by an
+authenticated client.  Authorization is a local matter.</p>
+<div class="section" id="service-procedure">
+<h4>Service Procedure<a class="headerlink" href="#service-procedure" title="Permalink to this headline">¶</a></h4>
+<p>Clients request a service by sending a <a class="reference internal" href="index.html#service-request"><em>Service Request</em></a> to the server
+using the appropriate <a class="reference internal" href="index.html#service-identifier"><em>Service Identifier</em></a>.  The service responds with
+an appropriate <a class="reference internal" href="index.html#service-request-result"><em>Service Request Result</em></a>.</p>
+<p>If the server responds with AUTHENTICATION_REQUIRED then the client will
+send an <a class="reference internal" href="index.html#access-request"><em>Access Request</em></a> with its user name.  The server will respond
+with <a class="reference internal" href="index.html#access-challenge"><em>Access Challenge</em></a> to authenticate the user, and the client will
+respond with an <a class="reference internal" href="index.html#access-response"><em>Access Response</em></a> to the challenge.  If the challenge is
+successful, the server will respond with a <a class="reference internal" href="index.html#service-request-result"><em>Service Request Result</em></a> with
+the result code SUCCESS.</p>
+</div>
+<div class="section" id="protocol-data-units">
+<h4>Protocol Data Units<a class="headerlink" href="#protocol-data-units" title="Permalink to this headline">¶</a></h4>
+<p>The session PDUs are used to request a specific type of session and establish
+authentication.  Authorization is a function of the server.  Authentication
+is not necessary if the mechanism used to establish the connection already
+provides authentication, or if the service allows for &#8220;guest&#8221; access.</p>
+<div class="section" id="service-request">
+<span id="id1"></span><h5>Service Request<a class="headerlink" href="#service-request" title="Permalink to this headline">¶</a></h5>
+<p>This PDU is sent by a client to a server to request that the connection by used
+for a specific service.  The server may provide more than one service via a
+common connection endpoint.</p>
+<table border="1" class="docutils">
+<caption><strong>Table X.2</strong> Service Request Format</caption>
+<colgroup>
+<col width="21%" />
+<col width="17%" />
+<col width="63%" />
+</colgroup>
+<thead valign="bottom">
+<tr class="row-odd"><th class="head">Field</th>
+<th class="head">Size</th>
+<th class="head">Description</th>
+</tr>
+</thead>
+<tbody valign="top">
+<tr class="row-even"><td>BSLV Type</td>
+<td>1-octet</td>
+<td>Streaming BACnet (value = X&#8216;82&#8217;)</td>
+</tr>
+<tr class="row-odd"><td>BSLV Function</td>
+<td>1-octet</td>
+<td>BSLV Result (value = X&#8216;00&#8217;)</td>
+</tr>
+<tr class="row-even"><td>BSLV Length</td>
+<td>2-octets</td>
+<td>Length (value = X&#8216;0006&#8217;)</td>
+</tr>
+<tr class="row-odd"><td>Service Identifier</td>
+<td>2-octets</td>
+<td><a class="reference internal" href="index.html#service-identifier"><em>Service Identifier</em></a></td>
+</tr>
+</tbody>
+</table>
+<div class="section" id="service-identifier">
+<span id="id2"></span><h6>Service Identifier<a class="headerlink" href="#service-identifier" title="Permalink to this headline">¶</a></h6>
+<p>Service identifiers are used to identify a service.</p>
+<table border="1" class="docutils">
+<caption><strong>Table X.3</strong> Service Identifiers</caption>
+<colgroup>
+<col width="36%" />
+<col width="9%" />
+<col width="55%" />
+</colgroup>
+<thead valign="bottom">
+<tr class="row-odd"><th class="head">Service Identifier Code</th>
+<th class="head">Value</th>
+<th class="head">Description</th>
+</tr>
+</thead>
+<tbody valign="top">
+<tr class="row-even"><td>DEVICE_TO_DEVICE_SERVICE_ID</td>
+<td>1</td>
+<td><a class="reference internal" href="index.html#document-device-to-device"><em>Device-to-Device Service</em></a></td>
+</tr>
+<tr class="row-odd"><td>ROUTER_TO_ROUTER_SERVICE_ID</td>
+<td>2</td>
+<td><a class="reference internal" href="index.html#document-router-to-router"><em>Router-to-Router Service</em></a></td>
+</tr>
+<tr class="row-even"><td>PROXY_SERVICE_ID</td>
+<td>3</td>
+<td><a class="reference internal" href="index.html#document-proxy"><em>Proxy Service</em></a></td>
+</tr>
+<tr class="row-odd"><td>LANE_SERVICE_ID</td>
+<td>4</td>
+<td><a class="reference internal" href="index.html#document-lane"><em>Local Area Network Emulation Service</em></a></td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<div class="section" id="service-request-result">
+<span id="id3"></span><h5>Service Request Result<a class="headerlink" href="#service-request-result" title="Permalink to this headline">¶</a></h5>
+<p>This PDU is used by the server to acknowledge that the service
+requested by the client is accepted and established, or to signal an error
+condition.</p>
+<table border="1" class="docutils">
+<caption><strong>Table X.4</strong> Service Request Result Format</caption>
+<colgroup>
+<col width="21%" />
+<col width="17%" />
+<col width="63%" />
+</colgroup>
+<thead valign="bottom">
+<tr class="row-odd"><th class="head">Field</th>
+<th class="head">Size</th>
+<th class="head">Description</th>
+</tr>
+</thead>
+<tbody valign="top">
+<tr class="row-even"><td>BSLV Type</td>
+<td>1-octet</td>
+<td>Streaming BACnet (value = X&#8216;82&#8217;)</td>
+</tr>
+<tr class="row-odd"><td>BSLV Function</td>
+<td>1-octet</td>
+<td>BSLV Result (value = X&#8216;00&#8217;)</td>
+</tr>
+<tr class="row-even"><td>BSLV Length</td>
+<td>2-octets</td>
+<td>Length (value = X&#8216;0006&#8217;)</td>
+</tr>
+<tr class="row-odd"><td>Result Code</td>
+<td>2-octets</td>
+<td>Success (value = X&#8216;0000&#8217;) or error</td>
+</tr>
+</tbody>
+</table>
+<div class="section" id="result-codes">
+<h6>Result Codes<a class="headerlink" href="#result-codes" title="Permalink to this headline">¶</a></h6>
+<p>If the server cannot provide the service requested, or the client is not
+authorized to use the service, the server may respond with a BSLL Response
+with function code X&#8216;00&#8217; and one of the following error values.  It will
+then terminate the connection.</p>
+<table border="1" class="docutils">
+<caption><strong>Table X.5</strong> Result Codes</caption>
+<colgroup>
+<col width="36%" />
+<col width="9%" />
+<col width="55%" />
+</colgroup>
+<thead valign="bottom">
+<tr class="row-odd"><th class="head">Result Code</th>
+<th class="head">Value</th>
+<th class="head">Description</th>
+</tr>
+</thead>
+<tbody valign="top">
+<tr class="row-even"><td>SUCCESS</td>
+<td>0</td>
+<td>&nbsp;</td>
+</tr>
+<tr class="row-odd"><td>NO_DEVICE_TO_DEVICE_SERVICE</td>
+<td>1</td>
+<td>&nbsp;</td>
+</tr>
+<tr class="row-even"><td>NO_ROUTER_TO_ROUTER_SERVICE</td>
+<td>2</td>
+<td>&nbsp;</td>
+</tr>
+<tr class="row-odd"><td>NO_PROXY_SERVICE</td>
+<td>3</td>
+<td>&nbsp;</td>
+</tr>
+<tr class="row-even"><td>NO_LANE_SERVICE</td>
+<td>4</td>
+<td>&nbsp;</td>
+</tr>
+<tr class="row-odd"><td>UNRECOGNIZED_SERVICE</td>
+<td>10</td>
+<td>&nbsp;</td>
+</tr>
+<tr class="row-even"><td>AUTHENTICATION_REQUIRED</td>
+<td>11</td>
+<td>Authentication required</td>
+</tr>
+<tr class="row-odd"><td>AUTHENTICATION_FAILURE</td>
+<td>12</td>
+<td>Username and/or username/password failure</td>
+</tr>
+<tr class="row-even"><td>AUTHENTICATION_NO_SERVICE</td>
+<td>13</td>
+<td>&nbsp;</td>
+</tr>
+<tr class="row-odd"><td>AUTHENTICATION_HASH</td>
+<td>14</td>
+<td>Specified hash function not supported</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<div class="section" id="access-request">
+<span id="id4"></span><h5>Access Request<a class="headerlink" href="#access-request" title="Permalink to this headline">¶</a></h5>
+<p>This PDU is sent by a client to the server to initiate the authentication
+process.  It may be sent before a <a class="reference internal" href="index.html#service-request"><em>Service Request</em></a> when the client
+knows <em>a priory</em> that authentication will be required, or when told by the
+server it is necessary.</p>
+<p>This request includes a request to use a <a class="reference internal" href="index.html#term-cryptographic-hash-function"><em class="xref std std-term">cryptographic hash function</em></a>
+to provide a level of encryption of the subsequent <a class="reference internal" href="index.html#access-challenge"><em>Access Challenge</em></a> and
+<a class="reference internal" href="index.html#access-response"><em>Access Response</em></a> PDUs.</p>
+<table border="1" class="docutils">
+<caption><strong>Table X.6</strong> Access Request Format</caption>
+<colgroup>
+<col width="21%" />
+<col width="17%" />
+<col width="63%" />
+</colgroup>
+<thead valign="bottom">
+<tr class="row-odd"><th class="head">Field</th>
+<th class="head">Size</th>
+<th class="head">Description</th>
+</tr>
+</thead>
+<tbody valign="top">
+<tr class="row-even"><td>BSLV Type</td>
+<td>1-octet</td>
+<td>Streaming BACnet (value = X&#8216;82&#8217;)</td>
+</tr>
+<tr class="row-odd"><td>BSLV Function</td>
+<td>1-octet</td>
+<td>Access Request (value = X&#8216;02&#8217;)</td>
+</tr>
+<tr class="row-even"><td>BSLV Length</td>
+<td>2-octets</td>
+<td>Length (variable)</td>
+</tr>
+<tr class="row-odd"><td>Hash Function Identifier</td>
+<td>1-octet</td>
+<td><a class="reference internal" href="index.html#hash-function-identifier"><em>Hash Function Identifier</em></a></td>
+</tr>
+<tr class="row-even"><td>User name</td>
+<td>variable</td>
+<td>User name</td>
+</tr>
+</tbody>
+</table>
+<p>The user name is an octet string that identifies the client within the context
+understood by the server.</p>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">I expect the user name to morph into the public key of a
+public/private key pair, rather than using usernames and passwords.</p>
+</div>
+<p>If the server does not support the hash function requested by the client, the
+server will respond with a <a class="reference internal" href="index.html#service-request-result"><em>Service Request Result</em></a> with the error code
+AUTHENTICATION_HASH and close the connection.</p>
+<p>If the server does not recognize the user name provided by the client it may
+continue with the authentication process by sending an <a class="reference internal" href="index.html#access-challenge"><em>Access Challenge</em></a>
+which will ultimately fail, it may send a <a class="reference internal" href="index.html#service-request-result"><em>Service Request Result</em></a> with
+the error code AUTHENTICATION_FAILURE and close the connection, or simply close
+the connection.</p>
+<div class="section" id="hash-function-identifier">
+<span id="id5"></span><h6>Hash Function Identifier<a class="headerlink" href="#hash-function-identifier" title="Permalink to this headline">¶</a></h6>
+<p>The hash function identifier specifies which function of a number of functions
+that both the client and server will use to create digest values contained in
+the <a class="reference internal" href="index.html#access-challenge"><em>Access Challenge</em></a> and <a class="reference internal" href="index.html#access-response"><em>Access Response</em></a> PDUs.</p>
+<table border="1" class="docutils">
+<caption><strong>Table X.7</strong> Hash Function Identifiers</caption>
+<colgroup>
+<col width="36%" />
+<col width="9%" />
+<col width="55%" />
+</colgroup>
+<thead valign="bottom">
+<tr class="row-odd"><th class="head">Hash Function Identifier Code</th>
+<th class="head">Value</th>
+<th class="head">Description</th>
+</tr>
+</thead>
+<tbody valign="top">
+<tr class="row-even"><td>MD5</td>
+<td>0</td>
+<td><a class="reference external" href="https://en.wikipedia.org/wiki/MD5">MD5</a> <strong>obsolete</strong></td>
+</tr>
+<tr class="row-odd"><td>SHA-1</td>
+<td>1</td>
+<td><a class="reference external" href="https://en.wikipedia.org/wiki/SHA-1">SHA-1</a> <strong>obsolete</strong></td>
+</tr>
+<tr class="row-even"><td>SHA-2, 224</td>
+<td>2</td>
+<td><a class="reference external" href="https://en.wikipedia.org/wiki/SHA-2">SHA-2</a></td>
+</tr>
+<tr class="row-odd"><td>SHA-2, 256</td>
+<td>3</td>
+<td>&nbsp;</td>
+</tr>
+<tr class="row-even"><td>SHA-2, 384</td>
+<td>4</td>
+<td>&nbsp;</td>
+</tr>
+<tr class="row-odd"><td>SHA-2, 512</td>
+<td>5</td>
+<td>&nbsp;</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<div class="section" id="access-challenge">
+<span id="id6"></span><h5>Access Challenge<a class="headerlink" href="#access-challenge" title="Permalink to this headline">¶</a></h5>
+<p>This PDU is sent by a server to a client after it receives an
+<a class="reference internal" href="index.html#access-request"><em>Access Request</em></a> to request that the client confirm the user name it
+presented to the server.</p>
+<table border="1" class="docutils">
+<caption><strong>Table X.8</strong> Access Challenge Format</caption>
+<colgroup>
+<col width="21%" />
+<col width="17%" />
+<col width="63%" />
+</colgroup>
+<thead valign="bottom">
+<tr class="row-odd"><th class="head">Field</th>
+<th class="head">Size</th>
+<th class="head">Description</th>
+</tr>
+</thead>
+<tbody valign="top">
+<tr class="row-even"><td>BSLV Type</td>
+<td>1-octet</td>
+<td>Streaming BACnet (value = X&#8216;82&#8217;)</td>
+</tr>
+<tr class="row-odd"><td>BSLV Function</td>
+<td>1-octet</td>
+<td>Access Request (value = X&#8216;02&#8217;)</td>
+</tr>
+<tr class="row-even"><td>BSLV Length</td>
+<td>2-octets</td>
+<td>Length (variable)</td>
+</tr>
+<tr class="row-odd"><td>Hash Function Identifier</td>
+<td>1-octet</td>
+<td><a class="reference internal" href="index.html#hash-function-identifier"><em>Hash Function Identifier</em></a></td>
+</tr>
+<tr class="row-even"><td>Challenge Data</td>
+<td>variable</td>
+<td>Challenge data</td>
+</tr>
+</tbody>
+</table>
+<p>The hash function identifier matches the value requested by the client in the
+<a class="reference internal" href="index.html#access-request"><em>Access Request</em></a>.</p>
+<p>The challenge data is a suitably large block of random data.</p>
+</div>
+<div class="section" id="access-response">
+<span id="id7"></span><h5>Access Response<a class="headerlink" href="#access-response" title="Permalink to this headline">¶</a></h5>
+<p>This PDU is sent by the client after receiving a <a class="reference internal" href="index.html#access-challenge"><em>Access Challenge</em></a>
+from the server.</p>
+<table border="1" class="docutils">
+<caption><strong>Table X.9</strong> Access Response Format</caption>
+<colgroup>
+<col width="21%" />
+<col width="17%" />
+<col width="63%" />
+</colgroup>
+<thead valign="bottom">
+<tr class="row-odd"><th class="head">Field</th>
+<th class="head">Size</th>
+<th class="head">Description</th>
+</tr>
+</thead>
+<tbody valign="top">
+<tr class="row-even"><td>BSLV Type</td>
+<td>1-octet</td>
+<td>Streaming BACnet (value = X&#8216;82&#8217;)</td>
+</tr>
+<tr class="row-odd"><td>BSLV Function</td>
+<td>1-octet</td>
+<td>Access Response (value = X&#8216;03&#8217;)</td>
+</tr>
+<tr class="row-even"><td>BSLV Length</td>
+<td>2-octets</td>
+<td>Length (variable)</td>
+</tr>
+<tr class="row-odd"><td>Hash Function Identifier</td>
+<td>1-octet</td>
+<td><a class="reference internal" href="index.html#hash-function-identifier"><em>Hash Function Identifier</em></a></td>
+</tr>
+<tr class="row-even"><td>Response Digest</td>
+<td>variable</td>
+<td>Response digest</td>
+</tr>
+</tbody>
+</table>
+<p>The hash function identifier matches the value requested by the client in the
+<a class="reference internal" href="index.html#access-request"><em>Access Request</em></a> and provided by the sever in the <a class="reference internal" href="index.html#access-challenge"><em>Access Challenge</em></a>.</p>
+<p>The response digest is the cryptographic digest of the secret password stored
+by the client concatenated with the challenge data provided by the server.</p>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">I expect the password to morph into the private key of a
+public/private key pair, rather than using usernames and passwords.</p>
+</div>
+<p>When the server receives the access response, it performs the identical
+calculation as the client by computing the cryptographic digest of the secret
+password associated with the client concatenated with the challenge data it
+provided earlier.  If the calculation results are identical, the client is
+considered authenticated.</p>
+<p>If the server does not recognize the user name provided by the client it may
+continue with the authentication process by sending an <a class="reference internal" href="index.html#access-challenge"><em>Access Challenge</em></a>
+which will ultimately fail, it may send a <a class="reference internal" href="index.html#service-request-result"><em>Service Request Result</em></a> with
+the error code AUTHENTICATION_FAILURE and close the connection, or simply close
+the connection.</p>
+<p>If the authenticated client had previously requested a specific service, the
+server will verify that the client is authorized to access the service.  If
+the client is authorized, the server will respond with a
+<a class="reference internal" href="index.html#service-request-result"><em>Service Request Result</em></a> with the error code SUCCESS.  If the client is
+not authorized, the server will respond with a <a class="reference internal" href="index.html#service-request-result"><em>Service Request Result</em></a>
+with the error code AUTHENTICATION_NO_SERVICE and closes the connection.</p>
+</div>
+</div>
+</div>
+<span id="document-device-to-device"></span><div class="section" id="device-to-device-service">
+<h3>Device-to-Device Service<a class="headerlink" href="#device-to-device-service" title="Permalink to this headline">¶</a></h3>
+<p>The simplest service is a connection between two devices.  There is no
+network layer, so the connection is only used for APDUs.  The NPCI provides
+priority, but other fields such as the DNET/DLEN/DADR and SNET/SLEN/SADR are
+absent.</p>
+<p>After authentication, if the server does not provide the Device-to-Device
+Service then it will send a <a class="reference internal" href="index.html#service-request-result"><em>Service Request Result</em></a> with the error code
+NO_DEVICE_TO_DEVICE_SERVICE.</p>
+<div class="section" id="protocol-data-units">
+<h4>Protocol Data Units<a class="headerlink" href="#protocol-data-units" title="Permalink to this headline">¶</a></h4>
+<p>There is only one kind of packet between the client and server, and once the
+session is established, the two end points are peers.</p>
+<div class="section" id="device-to-device-request">
+<span id="id1"></span><h5>Device-to-Device Request<a class="headerlink" href="#device-to-device-request" title="Permalink to this headline">¶</a></h5>
+<p>This packet is sent by client or the server to its peer.</p>
+<table border="1" class="docutils">
+<caption><strong>Table X.10</strong> Device-to-Device Request Format</caption>
+<colgroup>
+<col width="21%" />
+<col width="17%" />
+<col width="63%" />
+</colgroup>
+<thead valign="bottom">
+<tr class="row-odd"><th class="head">Field</th>
+<th class="head">Size</th>
+<th class="head">Description</th>
+</tr>
+</thead>
+<tbody valign="top">
+<tr class="row-even"><td>BSLV Type</td>
+<td>1-octet</td>
+<td>Streaming BACnet (value = X&#8216;82&#8217;)</td>
+</tr>
+<tr class="row-odd"><td>BSLV Function</td>
+<td>1-octet</td>
+<td>Device-to-Device Request (value = X&#8216;05&#8217;)</td>
+</tr>
+<tr class="row-even"><td>BSLV Length</td>
+<td>2-octets</td>
+<td>Length</td>
+</tr>
+<tr class="row-odd"><td>Payload</td>
+<td>variable</td>
+<td>Application PDU</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+</div>
+<span id="document-router-to-router"></span><div class="section" id="router-to-router-service">
+<h3>Router-to-Router Service<a class="headerlink" href="#router-to-router-service" title="Permalink to this headline">¶</a></h3>
+<p>This service is functionally identical to a PTP connection or Annex H peer
+relationship between half-routers.</p>
+<p>The DNET/DLEN/DADR and SNET/SLEN/SADR fields are provided for APDU’s.  Network
+layer functions, such as the exchange of routing tables, follow the same
+procedures and constraints as the PTP functionality in Section X.X.</p>
+<p>After authentication, if the server does not provide the Router-to-Router
+Service then it will send a <a class="reference internal" href="index.html#service-request-result"><em>Service Request Result</em></a> with the error code
+NO_ROUTER_TO_ROUTER_SERVICE.</p>
+<div class="section" id="protocol-data-units">
+<h4>Protocol Data Units<a class="headerlink" href="#protocol-data-units" title="Permalink to this headline">¶</a></h4>
+<p>There is only one kind of packet between the client and server, and once the
+session is established, the two end points are peers.</p>
+<div class="section" id="router-to-router-request">
+<span id="id1"></span><h5>Router-to-Router Request<a class="headerlink" href="#router-to-router-request" title="Permalink to this headline">¶</a></h5>
+<p>This packet is sent by client or the server to its peer.</p>
+<table border="1" class="docutils">
+<caption><strong>Table X.11</strong> Router-to-Router Request Format</caption>
+<colgroup>
+<col width="21%" />
+<col width="17%" />
+<col width="63%" />
+</colgroup>
+<thead valign="bottom">
+<tr class="row-odd"><th class="head">Field</th>
+<th class="head">Size</th>
+<th class="head">Description</th>
+</tr>
+</thead>
+<tbody valign="top">
+<tr class="row-even"><td>BSLV Type</td>
+<td>1-octet</td>
+<td>Streaming BACnet (value = X&#8216;82&#8217;)</td>
+</tr>
+<tr class="row-odd"><td>BSLV Function</td>
+<td>1-octet</td>
+<td>Router-to-Router Request (value = X&#8216;06&#8217;)</td>
+</tr>
+<tr class="row-even"><td>BSLV Length</td>
+<td>2-octets</td>
+<td>Length</td>
+</tr>
+<tr class="row-odd"><td>Payload</td>
+<td>variable</td>
+<td>Application PDU</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+</div>
+<span id="document-proxy"></span><div class="section" id="proxy-service">
+<h3>Proxy Service<a class="headerlink" href="#proxy-service" title="Permalink to this headline">¶</a></h3>
+<p>The proxy functionality provides a mechanism for a device to participate in a
+BACnet intranet that cannot use connectionless protocols in peer-to-peer or
+broadcast exchanges of PDU’s, either because it is impossible, due to firewall
+restrictions, or impractical, perhaps due to the complexity of configuring all
+of the intermediate networking equipment.</p>
+<p>A proxy server is conceptually like a &#8220;port extender.&#8221;  It has a BACnet
+address on an interface on a BACnet network, and similar to a router, knows the
+network number of its interface.  As a BSLL server it provides a listener for
+connected clients.  For example, it may have UDP port 47808 open and
+additionally be listening for clients on TCP port 47808.</p>
+<p>After authentication, if the server does not provide the Proxy Service then it
+will send a <a class="reference internal" href="index.html#service-request-result"><em>Service Request Result</em></a> with the error code
+NO_PROXY_SERVICE.</p>
+<p>After a proxy client initiates a session with a server, the server will
+forward all PDU’s from the client to network and vice versa.  BACnet
+functionality is provided by client.  A proxy server does not provide any
+BACnet services without a connected proxy client.</p>
+<p>There are two types of proxy servers; those that are limited to supporting a
+single client, and those that support multiple clients.</p>
+<div class="section" id="single-client-proxy-service">
+<h4>Single Client Proxy Service<a class="headerlink" href="#single-client-proxy-service" title="Permalink to this headline">¶</a></h4>
+<p>A proxy server that is limited to supporting a single client forwards all
+BACnet traffic that it receives to the client and vice versa.  It may
+additionally cache network topology information, such as the addresses routers
+and their connected networks to facilitate path discovery on behalf of clients.</p>
+</div>
+<div class="section" id="multiple-client-proxy-service">
+<h4>Multiple Client Proxy Service<a class="headerlink" href="#multiple-client-proxy-service" title="Permalink to this headline">¶</a></h4>
+<p>In addition to caching network topology information like a single client
+proxy server, a proxy server that supports multiple clients may provide
+additional functionality for processing application layer confirmed
+services on behalf of connected clients.  For example, it may listen for
+unicast confirmed service requests from clients and forward the related unicast
+responses to the requesting client without also forwarding it to other clients.</p>
+<p>All broadcast messages that are received by the server are forwarded to all
+connected clients.</p>
+<p>Note that unlike <a class="reference internal" href="index.html#document-lane"><em>Local Area Network Emulation Service</em></a> the connected clients to a proxy service cannot
+exchange packets between themselves, nor are they made aware of the presence
+or absence of other connected clients.  Only one connected client provides
+BACnet server functionality to the BACnet intranet, responding to Who-Is
+requests for example.</p>
+</div>
+<div class="section" id="protocol-data-units">
+<h4>Protocol Data Units<a class="headerlink" href="#protocol-data-units" title="Permalink to this headline">¶</a></h4>
+<p>Packets from the proxy server to the connected clients will have the
+SNET/SLEN/SADR fields present.  The DNET/DLEN/DADR fields may also be present
+if the packet was broadcast, so the DLEN will always be zero and the DADR
+empty.</p>
+<p>Packets from a proxy client to its connected server will have the
+DNET/DLEN/DADR fields present.</p>
+<div class="section" id="proxy-client-to-server-unicast-request">
+<span id="proxy-to-server-unicast-request"></span><h5>Proxy Client to Server Unicast Request<a class="headerlink" href="#proxy-client-to-server-unicast-request" title="Permalink to this headline">¶</a></h5>
+<p>This packet is sent by a client to the server to request that the server send
+the request to a BACnet address on behalf of the client.  The request
+payload is restricted to unicast messages.</p>
+<p>The DNET/DLEN/DADR fields of the NPCI will be present, even if the destination
+is on the same BACnet network as the proxy server.</p>
+<table border="1" class="docutils">
+<caption><strong>Table X.12</strong> Device-to-Device Request Format</caption>
+<colgroup>
+<col width="21%" />
+<col width="17%" />
+<col width="63%" />
+</colgroup>
+<thead valign="bottom">
+<tr class="row-odd"><th class="head">Field</th>
+<th class="head">Size</th>
+<th class="head">Description</th>
+</tr>
+</thead>
+<tbody valign="top">
+<tr class="row-even"><td>BSLV Type</td>
+<td>1-octet</td>
+<td>Streaming BACnet (value = X&#8216;82&#8217;)</td>
+</tr>
+<tr class="row-odd"><td>BSLV Function</td>
+<td>1-octet</td>
+<td>Proxy Client to Server Unicast Request (value = X&#8216;06&#8217;)</td>
+</tr>
+<tr class="row-even"><td>BSLV Length</td>
+<td>2-octets</td>
+<td>Length</td>
+</tr>
+<tr class="row-odd"><td>Payload</td>
+<td>variable</td>
+<td>Application PDU</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="section" id="proxy-client-to-server-broadcast-request">
+<span id="proxy-to-server-broadcast-request"></span><h5>Proxy Client to Server Broadcast Request<a class="headerlink" href="#proxy-client-to-server-broadcast-request" title="Permalink to this headline">¶</a></h5>
+<p>This packet is sent by a client to the server to request that the server
+broadcast the request on the local network in the case of local broadcast
+or global broadcast messages, or in the case of a remote network broadcast,
+send the request as a unicast message to the router responsible for the
+destination network.  The request payload is restricted to broadcast messages.</p>
+<p>The DNET/DLEN/DADR fields of the NPCI will be present.  If the destination
+is to be considered a local broadcast by the proxy server, then the DNET
+will be the network of the proxy server.  In all cases the DLEN will be
+zero and the DADR will be the empty octet string.</p>
+<table border="1" class="docutils">
+<caption><strong>Table X.13</strong> Device-to-Device Request Format</caption>
+<colgroup>
+<col width="21%" />
+<col width="17%" />
+<col width="63%" />
+</colgroup>
+<thead valign="bottom">
+<tr class="row-odd"><th class="head">Field</th>
+<th class="head">Size</th>
+<th class="head">Description</th>
+</tr>
+</thead>
+<tbody valign="top">
+<tr class="row-even"><td>BSLV Type</td>
+<td>1-octet</td>
+<td>Streaming BACnet (value = X&#8216;82&#8217;)</td>
+</tr>
+<tr class="row-odd"><td>BSLV Function</td>
+<td>1-octet</td>
+<td>Proxy Client to Server Broadcast Request (value = X&#8216;07&#8217;)</td>
+</tr>
+<tr class="row-even"><td>BSLV Length</td>
+<td>2-octets</td>
+<td>Length</td>
+</tr>
+<tr class="row-odd"><td>Payload</td>
+<td>variable</td>
+<td>Application PDU</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="section" id="proxy-server-to-client-unicast-request">
+<span id="server-to-proxy-unicast-request"></span><h5>Proxy Server to Client Unicast Request<a class="headerlink" href="#proxy-server-to-client-unicast-request" title="Permalink to this headline">¶</a></h5>
+<p>This packet is a forwarded copy of a unicast message received by the server
+to the client.  The request payload is restricted to unicast messages.</p>
+<p>The SNET/SLEN/SADR fields of the NPCI will be present, even if the destination
+is on the same BACnet network as the proxy server.  The DNET/DLEN/DADR fields
+of the NPCI will be absent.</p>
+<table border="1" class="docutils">
+<caption><strong>Table X.14</strong> Device-to-Device Request Format</caption>
+<colgroup>
+<col width="21%" />
+<col width="17%" />
+<col width="63%" />
+</colgroup>
+<thead valign="bottom">
+<tr class="row-odd"><th class="head">Field</th>
+<th class="head">Size</th>
+<th class="head">Description</th>
+</tr>
+</thead>
+<tbody valign="top">
+<tr class="row-even"><td>BSLV Type</td>
+<td>1-octet</td>
+<td>Streaming BACnet (value = X&#8216;82&#8217;)</td>
+</tr>
+<tr class="row-odd"><td>BSLV Function</td>
+<td>1-octet</td>
+<td>Proxy Server to Client Unicast Request (value = X&#8216;08&#8217;)</td>
+</tr>
+<tr class="row-even"><td>BSLV Length</td>
+<td>2-octets</td>
+<td>Length</td>
+</tr>
+<tr class="row-odd"><td>Payload</td>
+<td>variable</td>
+<td>Application PDU</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="section" id="proxy-server-to-client-broadcast-request">
+<span id="server-to-proxy-broadcast-request"></span><h5>Proxy Server to Client Broadcast Request<a class="headerlink" href="#proxy-server-to-client-broadcast-request" title="Permalink to this headline">¶</a></h5>
+<p>This packet is a forwarded copy of a broadcast message received by the server
+to the client.  The request payload is restricted to broadcast messages.</p>
+<p>The SNET/SLEN/SADR fields of the NPCI will be present, even if the destination
+is on the same BACnet network as the proxy server.</p>
+<p>The DNET/DLEN/DADR fields of the NPCI will be present.  If the destination
+was a local broadcast when it was received by the proxy server, then the DNET
+will be the network of the proxy server.  In all cases the DLEN will be
+zero and the DADR will be the empty octet string.</p>
+<table border="1" class="docutils">
+<caption><strong>Table X.15</strong> Device-to-Device Request Format</caption>
+<colgroup>
+<col width="21%" />
+<col width="17%" />
+<col width="63%" />
+</colgroup>
+<thead valign="bottom">
+<tr class="row-odd"><th class="head">Field</th>
+<th class="head">Size</th>
+<th class="head">Description</th>
+</tr>
+</thead>
+<tbody valign="top">
+<tr class="row-even"><td>BSLV Type</td>
+<td>1-octet</td>
+<td>Streaming BACnet (value = X&#8216;82&#8217;)</td>
+</tr>
+<tr class="row-odd"><td>BSLV Function</td>
+<td>1-octet</td>
+<td>Proxy Server to Client Broadcast Request (value = X&#8216;09&#8217;)</td>
+</tr>
+<tr class="row-even"><td>BSLV Length</td>
+<td>2-octets</td>
+<td>Length</td>
+</tr>
+<tr class="row-odd"><td>Payload</td>
+<td>variable</td>
+<td>Application PDU</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+</div>
+<span id="document-lane"></span><div class="section" id="local-area-network-emulation-service">
+<h3>Local Area Network Emulation Service<a class="headerlink" href="#local-area-network-emulation-service" title="Permalink to this headline">¶</a></h3>
+<p>This service provides local area <a class="reference internal" href="index.html#term-network-emulation"><em class="xref std std-term">network emulation</em></a> (LANE) for its
+connected clients.  Every client is given a unique address within the address
+space available to the server.  For example, if the server was providing
+Ethernet Local Area Network Emulation (ELANE) then each client would be given
+an Ethernet 6-octet address.</p>
+<p>The size of the address space is a configuration property of the server.  It
+must be at least 1-octet which would be similar to an MS/TP or ARCNET LAN, and
+addresses longer than 6-octets may not be supported by BACnet devices.</p>
+<p>The server is also configured with a BACnet network number that is unique in
+the BACnet intranet.  It may be a <em>standalone server</em> which is not functioning
+as a router.  If it is functioning as a router, then at least one of the
+addresses in the address space available to the server will be reserved to
+be the address of the router to the BACnet intranet.</p>
+<p>After authentication, if the server does not provide the LANE Service then it
+will send a <a class="reference internal" href="index.html#service-request-result"><em>Service Request Result</em></a> with the error code
+NO_LANE_SERVICE.</p>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">This is now more commonly referred to as a <em>virtual network</em> and the
+addresses assigned by the server are <em>virtual MAC addresses</em>.</p>
+</div>
+<div class="section" id="protocol-data-units">
+<h4>Protocol Data Units<a class="headerlink" href="#protocol-data-units" title="Permalink to this headline">¶</a></h4>
+<p>Packets from the LANE server to the connected clients will have the
+SNET/SLEN/SADR fields present.  The DNET/DLEN/DADR fields may also be present
+if the packet was broadcast, in this case the DLEN will always be zero and the
+DADR empty octet string.</p>
+<p>Packets from a client to its connected server will have the DNET/DLEN/DADR
+fields present.</p>
+<div class="section" id="lane-client-to-server-unicast-request">
+<span id="client-to-server-unicast-request"></span><h5>LANE Client to Server Unicast Request<a class="headerlink" href="#lane-client-to-server-unicast-request" title="Permalink to this headline">¶</a></h5>
+<p>This packet is sent by a client to the server to request that the server send
+the request to a BACnet address on behalf of the client.  The request
+payload is restricted to unicast messages.</p>
+<p>The DNET/DLEN/DADR fields of the NPCI will be present, even if the destination
+is the BACnet network being emulated by the server.</p>
+<table border="1" class="docutils">
+<caption><strong>Table X.16</strong> LANE Client to Server Unicast Request Format</caption>
+<colgroup>
+<col width="21%" />
+<col width="17%" />
+<col width="63%" />
+</colgroup>
+<thead valign="bottom">
+<tr class="row-odd"><th class="head">Field</th>
+<th class="head">Size</th>
+<th class="head">Description</th>
+</tr>
+</thead>
+<tbody valign="top">
+<tr class="row-even"><td>BSLV Type</td>
+<td>1-octet</td>
+<td>Streaming BACnet (value = X&#8216;82&#8217;)</td>
+</tr>
+<tr class="row-odd"><td>BSLV Function</td>
+<td>1-octet</td>
+<td>LANE Client to Server Unicast Request (value = X&#8216;0B&#8217;)</td>
+</tr>
+<tr class="row-even"><td>BSLV Length</td>
+<td>2-octets</td>
+<td>Length</td>
+</tr>
+<tr class="row-odd"><td>Payload</td>
+<td>variable</td>
+<td>Application PDU</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="section" id="lane-client-to-server-broadcast-request">
+<span id="client-to-server-broadcast-request"></span><h5>LANE Client to Server Broadcast Request<a class="headerlink" href="#lane-client-to-server-broadcast-request" title="Permalink to this headline">¶</a></h5>
+<p>This packet is sent by a client to the server to request that the server
+broadcast the request on the network emulated by the server in the case of
+a local broadcast or global broadcast message, or in the case of a remote
+network broadcast, send the request as a unicast message to the router
+responsible for the destination network.  The request payload is restricted to
+broadcast messages.</p>
+<p>The DNET/DLEN/DADR fields of the NPCI will be present.  If the destination
+is to be considered a local broadcast by the LANE server, then the DNET
+will be the network emulated by server.  In all cases the DLEN will be
+zero and the DADR will be the empty octet string.</p>
+<table border="1" class="docutils">
+<caption><strong>Table X.17</strong> LANE Client to Server Request Format</caption>
+<colgroup>
+<col width="21%" />
+<col width="17%" />
+<col width="63%" />
+</colgroup>
+<thead valign="bottom">
+<tr class="row-odd"><th class="head">Field</th>
+<th class="head">Size</th>
+<th class="head">Description</th>
+</tr>
+</thead>
+<tbody valign="top">
+<tr class="row-even"><td>BSLV Type</td>
+<td>1-octet</td>
+<td>Streaming BACnet (value = X&#8216;82&#8217;)</td>
+</tr>
+<tr class="row-odd"><td>BSLV Function</td>
+<td>1-octet</td>
+<td>LANE Client to Server Broadcast Request (value = X&#8216;0C&#8217;)</td>
+</tr>
+<tr class="row-even"><td>BSLV Length</td>
+<td>2-octets</td>
+<td>Length</td>
+</tr>
+<tr class="row-odd"><td>Payload</td>
+<td>variable</td>
+<td>Application PDU</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="section" id="lane-server-to-client-unicast-request">
+<span id="server-to-client-unicast-request"></span><h5>LANE Server to Client Unicast Request<a class="headerlink" href="#lane-server-to-client-unicast-request" title="Permalink to this headline">¶</a></h5>
+<p>This packet is a forwarded copy of a unicast message received by the server
+to the client.  The request payload is restricted to unicast messages.</p>
+<p>The SNET/SLEN/SADR fields of the NPCI will be present, even if the destination
+is the same BACnet network emulated by the server.  The DNET/DLEN/DADR fields
+of the NPCI will be absent.</p>
+<table border="1" class="docutils">
+<caption><strong>Table X.18</strong> LANE Server to Client Unicast Request Format</caption>
+<colgroup>
+<col width="21%" />
+<col width="17%" />
+<col width="63%" />
+</colgroup>
+<thead valign="bottom">
+<tr class="row-odd"><th class="head">Field</th>
+<th class="head">Size</th>
+<th class="head">Description</th>
+</tr>
+</thead>
+<tbody valign="top">
+<tr class="row-even"><td>BSLV Type</td>
+<td>1-octet</td>
+<td>Streaming BACnet (value = X&#8216;82&#8217;)</td>
+</tr>
+<tr class="row-odd"><td>BSLV Function</td>
+<td>1-octet</td>
+<td>LANE Server to Client Unicast Request (value = X&#8216;0D&#8217;)</td>
+</tr>
+<tr class="row-even"><td>BSLV Length</td>
+<td>2-octets</td>
+<td>Length</td>
+</tr>
+<tr class="row-odd"><td>Payload</td>
+<td>variable</td>
+<td>Application PDU</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="section" id="lane-server-to-client-broadcast-request">
+<span id="server-to-client-broadcast-request"></span><h5>LANE Server to Client Broadcast Request<a class="headerlink" href="#lane-server-to-client-broadcast-request" title="Permalink to this headline">¶</a></h5>
+<p>This packet is a forwarded copy of a broadcast message received by the server
+to the client.  The request payload is restricted to broadcast messages.</p>
+<p>The SNET/SLEN/SADR fields of the NPCI will be present, even if the destination
+is on the same BACnet network emulated by server.</p>
+<p>The DNET/DLEN/DADR fields of the NPCI will be present.  If the destination
+was a local broadcast when it was received by the server, then the DNET
+will be the network emulated by the server.  In all cases the DLEN will be
+zero and the DADR will be the empty octet string.</p>
+<table border="1" class="docutils">
+<caption><strong>Table X.19</strong> LANE Server to Client Request Format</caption>
+<colgroup>
+<col width="21%" />
+<col width="17%" />
+<col width="63%" />
+</colgroup>
+<thead valign="bottom">
+<tr class="row-odd"><th class="head">Field</th>
+<th class="head">Size</th>
+<th class="head">Description</th>
+</tr>
+</thead>
+<tbody valign="top">
+<tr class="row-even"><td>BSLV Type</td>
+<td>1-octet</td>
+<td>Streaming BACnet (value = X&#8216;82&#8217;)</td>
+</tr>
+<tr class="row-odd"><td>BSLV Function</td>
+<td>1-octet</td>
+<td>LANE Server to Client Broadcast Request (value = X&#8216;0E&#8217;)</td>
+</tr>
+<tr class="row-even"><td>BSLV Length</td>
+<td>2-octets</td>
+<td>Length</td>
+</tr>
+<tr class="row-odd"><td>Payload</td>
+<td>variable</td>
+<td>Application PDU</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="section" id="glossary">
+<h2>Glossary<a class="headerlink" href="#glossary" title="Permalink to this headline">¶</a></h2>
+<div class="toctree-wrapper compound">
+<span id="document-glossary"></span><div class="section" id="glossary">
+<h3>Glossary<a class="headerlink" href="#glossary" title="Permalink to this headline">¶</a></h3>
+<dl class="glossary docutils">
+<dt id="term-client">client</dt>
+<dd>A client is a software application that accesses a service made
+available by a server. The server is often (but not always) on another
+computer system, in which case the client accesses the service by way of
+a network. The term applies to programs or devices that are part of a
+client–server model. <a class="reference external" href="https://en.wikipedia.org/wiki/Client_(computing)">Wikipedia Client</a></dd>
+<dt id="term-connection">connection</dt>
+<dd>A connection is relationship between clients and servers that use a
+connection-oriented protocol to exchange data.  In this specification a
+connection is used to establish a session, which is an agreement between
+the client and server that the connection will be a specific kind of
+relationship.</dd>
+<dt id="term-cryptographic-hash-function">cryptographic hash function</dt>
+<dd><p class="first">A hash function is any function that can be used to map digital data of
+arbitrary size to digital data of fixed size. The values returned by a
+hash function are called hash values, hash codes, hash sums, or simply
+hashes.</p>
+<p class="last">A cryptographic hash function is a hash function which is considered
+practically impossible to invert, that is, to recreate the input data
+from its hash value alone.  <a class="reference external" href="https://en.wikipedia.org/wiki/Hash_function">Wikipedia Hash Function</a></p>
+</dd>
+<dt id="term-network-emulation">network emulation</dt>
+<dd>Network emulation is a technique where the properties of a network are
+simulated using emulation of network equipment (i.e., OSI Layer 2).  This
+is distinguished from network simulation which includes simplified
+mathematical models of a physical network (i.e., OSI Layer 1).</dd>
+<dt id="term-server">server</dt>
+<dd>A server is a software application that is capable of accepting requests
+from clients. The clients are often (but not always) on another
+computer system, in which case the client accesses the service by way of
+a network. The term applies to programs or devices that are part of a
+client–server model. <a class="reference external" href="https://en.wikipedia.org/wiki/Server_(computing)">Wikipedia Server</a></dd>
+<dt id="term-session">session</dt>
+<dd>A session is a semi-permanent interactive information interchange, also
+known as a dialogue, a conversation or a meeting, between a client and
+a server.  Different types of sessions have different expectations of
+the kinds of messages that will be used in the session.</dd>
+<dt id="term-connection-oriented-protocol">connection-oriented protocol</dt>
+<dd>A connection-oriented protocol provides a reliable network service
+between clients and servers that includes delivery of packets in the
+same order they were sent, acknowledgment after successful delivery, and
+automatic repeat request functions in case of missing data or detected
+bit-errors.</dd>
+</dl>
+</div>
+</div>
+</div>
+</div>
+<div class="section" id="indices-and-tables">
+<h1>Indices and tables<a class="headerlink" href="#indices-and-tables" title="Permalink to this headline">¶</a></h1>
+<ul class="simple">
+<li><a class="reference internal" href="genindex.html"><em>Index</em></a></li>
+<li><a class="reference internal" href="py-modindex.html"><em>Module Index</em></a></li>
+<li><a class="reference internal" href="search.html"><em>Search Page</em></a></li>
+</ul>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="index.html#document-index">Table Of Contents</a></h3>
+  <ul>
+<li class="toctree-l1"><a class="reference internal" href="index.html#document-session">Sessions</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="index.html#service-procedure">Service Procedure</a></li>
+<li class="toctree-l2"><a class="reference internal" href="index.html#protocol-data-units">Protocol Data Units</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="index.html#document-device-to-device">Device-to-Device Service</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="index.html#protocol-data-units">Protocol Data Units</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="index.html#document-router-to-router">Router-to-Router Service</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="index.html#protocol-data-units">Protocol Data Units</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="index.html#document-proxy">Proxy Service</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="index.html#single-client-proxy-service">Single Client Proxy Service</a></li>
+<li class="toctree-l2"><a class="reference internal" href="index.html#multiple-client-proxy-service">Multiple Client Proxy Service</a></li>
+<li class="toctree-l2"><a class="reference internal" href="index.html#protocol-data-units">Protocol Data Units</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="index.html#document-lane">Local Area Network Emulation Service</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="index.html#protocol-data-units">Protocol Data Units</a></li>
+</ul>
+</li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="index.html#document-glossary">Glossary</a></li>
+</ul>
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li><a href="index.html#document-index">Streaming BACnet</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; Copyright .
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.2.3.
+    </div>
+  </body>
+</html>
